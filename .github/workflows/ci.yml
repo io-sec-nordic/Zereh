@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            clang \
+            llvm \
+            make \
+            pkg-config \
+            libbpf-dev \
+            libyaml-dev \
+            libelf-dev \
+            zlib1g-dev
+
+      - name: Dependency check
+        run: make deps-check
+
+      - name: Build
+        run: make -j"$(nproc)"
+
+      - name: Generate XDP object
+        run: make generate
+
+      - name: Version and hash smoke tests
+        run: |
+          ./build/bin/zerehctl version
+          ./build/bin/zerehctl hash t.example.com fnv1a
+          ./build/bin/zerehctl hash t.example.com siphash
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: zereh-build
+          path: build/

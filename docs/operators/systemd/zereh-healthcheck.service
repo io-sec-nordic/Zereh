@@ -1,0 +1,9 @@
+[Unit]
+Description=Zereh Periodic Health Check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/zereh/zereh.env
+ExecStart=/usr/bin/bash -lc '/opt/zereh/scripts/health_check.sh ${CONFIG_PATH} ${IFACE}'

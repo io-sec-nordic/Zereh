@@ -1,0 +1,86 @@
+# Zereh Configuration File (config.yaml) - General Purpose Filtering & Routing
+template_path: "xdp/xdp_template.c"
+generated_source: "build/xdp/router_generated.c"
+generated_object: "build/xdp/router_generated.o"
+xdp_section: "xdp_router"
+
+global:
+  interface: "eth0"
+  xdp_mode: "native"      # options: skb, native, offload
+  default_action: "drop"  # what to do if no route matches
+
+# -------------------------------------------------------------------------
+# PRE-ROUTING: Global Filters (Applied to ALL traffic on port 53)
+# -------------------------------------------------------------------------
+global_filters:
+  ip_blacklist:
+    - "192.168.1.50"
+    - "10.0.0.0/8"
+  max_packet_size: 512    # Drop packets larger than 512 bytes (DNS Amplification protection)
+  allowed_opcodes:
+    - 0                   # Only allow Standard Query (Query)
+  drop_truncated: true    # Drop packets with TC (Truncated) bit set
+
+# -------------------------------------------------------------------------
+# ROUTES & POST-ROUTING: App-Specific Logic
+# -------------------------------------------------------------------------
+routes:
+  - domain: "t.example.com"
+    target_type: "user_space"
+    xsk_map_index: 0
+    # Post-routing filters specific to this domain
+    filters:
+      pow:
+        enabled: true
+        difficulty: 22    # Higher difficulty for telemetry domain
+      qname_rules:
+        prefix_match: "dev-"     # Only allow e.g., dev-sensor1.t.example.com
+        suffix_match: "-data"    # Only allow e.g., sensor1-data.t.example.com
+        min_labels: 4            # Exactly 4 levels of labels (a.b.c.d)
+        max_labels: 4            # Exactly 4 levels of labels (a.b.c.d)
+      rate_limit:
+        qps: 1000                # Max 1000 queries per second for this domain
+
+  - domain: "m.example.com"
+    target_type: "kernel_space"
+    forward_port: 5302
+    filters:
+      pow:
+        enabled: false           # Disable PoW for legacy internal app
+      rate_limit:
+        qps: 100
+      dns_types:
+        allow: ["A", "AAAA"]     # Only allow IPv4 and IPv6 lookups
+        deny: ["TXT", "ANY"]     # Deny potential data exfiltration types
+
+  - domain: "q.example.com"
+    target_type: "xdp_prog"
+    prog_array_index: 1
+    # Optional explicit program symbol from the loaded object.
+    # If omitted, loader tries zereh_app_<prog_array_index>, then zereh_app_default.
+    prog_name: "zereh_app_default"
+    filters:
+      pow:
+        enabled: true
+        difficulty: 18
+        time_window: 60           # PoW tokens valid for 60 seconds
+      bloom_filter:
+        enabled: true
+        size: 1024               # Size of the Bloom filter for known good QNAMEs
+        hash_functions: 3        # Number of hash functions for the Bloom filter
+        time_window: 60          # Bloom filter entries valid for 60 seconds
+        allow_qnames:
+          - "q.example.com"
+          - "edge.q.example.com"
+      # Advanced: Filter based on the depth of the DNS query
+      qname_rules:
+        min_length: 10           # Minimum string length of the QNAME
+        max_length: 64           # Maximum string length
+
+# -------------------------------------------------------------------------
+# CODE GENERATION HINTS
+# -------------------------------------------------------------------------
+codegen_options:
+  hash_algorithm: "SipHash"       # Fast hash for QNAME lookup
+  optimize_jump_tables: true     # Use GCC/Clang jump tables for switch-case
+  inline_checksums: true         # Inline incremental checksum updates

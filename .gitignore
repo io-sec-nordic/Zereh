@@ -1,0 +1,38 @@
+# Build outputs
+/build/
+/dist/
+/out/
+/bin/
+
+# C / toolchain artifacts
+*.o
+*.lo
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.obj
+*.ko
+
+# Coverage / profiling artifacts
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+
+# Logs and runtime temp files
+*.log
+*.pid
+*.tmp
+*.stackdump
+
+# Editor and OS noise
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

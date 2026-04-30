@@ -1,0 +1,15 @@
+[Unit]
+Description=Zereh XDP Load Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Adjust paths before production use.
+EnvironmentFile=/etc/zereh/zereh.env
+ExecStart=/usr/bin/bash -lc '/opt/zereh/build/bin/zerehctl generate-load -c ${CONFIG_PATH} -i ${IFACE}'
+ExecStop=/usr/bin/bash -lc '/opt/zereh/build/bin/zerehctl unload -c ${CONFIG_PATH} -i ${IFACE}'
+
+[Install]
+WantedBy=multi-user.target
